@@ -1,0 +1,5 @@
+Flask==2.3.2
+requests==2.31.0
+biotite==0.39
+numpy==1.26.4
+gunicorn==21.2.0
