@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESMFold Protein Predictor</title>
+    
+    <!-- 3Dmol.js for 3D visualization -->
+    <script src="https://3dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #121212;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 800px;
+            margin: auto;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-size: 18px;
+            background-color: #222;
+            color: white;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid #444;
+        }
+        button {
+            background-color: #ff5722;
+            color: white;
+            font-size: 20px;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 8px;
+            margin-top: 10px;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background-color: #ffcc00;
+        }
+        .viewer-container {
+            width: 100%;
+            margin-top: 20px;
+        }
+        #viewer {
+            width: 600px;
+            height: 500px;
+            border: 1px solid white;
+            background-color: black;
+            margin: auto;
+        }
+        #loading-spinner {
+            font-size: 18px;
+            display: none;
+            margin-top: 10px;
+            color: #ffcc00;
+        }
+        .info-box {
+            background: #222;
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 10px;
+            text-align: left;
+        }
+        @media (max-width: 768px) {
+            textarea {
+                height: 120px;
+            }
+            #viewer {
+                width: 100%;
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🔬 ESMFold Protein Structure Predictor</h1>
+        
+        <textarea id="sequence" placeholder="Enter protein sequence (e.g., MVLSPADKTNIK...)"></textarea><br>
+        <button onclick="predictStructure()">🚀 Predict Structure</button>
+        
+        <p id="loading-spinner">⏳ Predicting... Please wait.</p>
+
+        <div class="viewer-container">
+            <h2>🔬 3D Structure Visualization</h2>
+            <div id="viewer"></div>
+        </div>
+
+        <div class="info-box">
+            <h2>📊 Prediction Details</h2>
+            <p><strong>✅ Average Confidence Score:</strong> <span id="confidence-score">Awaiting prediction...</span></p>
+            <p><strong>⚖️ Molecular Weight:</strong> <span id="molecular-weight">Awaiting prediction...</span></p>
+            <p><strong>🔢 Sequence Length:</strong> <span id="sequence-length">Awaiting prediction...</span></p>
+            <a id="download-link" style="display:none" download="predicted.pdb">📥 Download PDB</a>
+        </div>
+    </div>
+
+    <script>
+       function predictStructure() {
+            let sequence = document.getElementById("sequence").value.trim();
+            
+            if (!sequence) {
+                alert("❌ Please enter a protein sequence.");
+                return;
+            }
+            if (sequence.length > 1000) {
+                alert("❌ Sequence too long! Maximum allowed: 1000 amino acids.");
+                return;
+            
+            }
+            
+            $("#loading-spinner").show();
+            $("#confidence-score").text("⏳ Predicting...");
+            $("#molecular-weight").text("⏳ Predicting...");
+            $("#sequence-length").text("⏳ Predicting...");
+            $("#viewer").empty();
+
+            $.post("/predict", { sequence: sequence }, function(data) {
+                $("#loading-spinner").hide();
+
+                if (data.error) {
+                    alert("❌ " + data.error);
+                    return;
+                }
+                $("#confidence-score").text(data.confidence !== "N/A" ? data.confidence + "%" : "N/A");
+                $("#molecular-weight").text(data.molecular_weight !== "Unknown" ? data.molecular_weight + " Da" : "Unknown");
+                $("#sequence-length").text(data.sequence_length ? data.sequence_length + " residues" : "N/A");
+ 
+                $("#download-link").attr("href", data.pdb_url).show();
+
+                render3DStructure(data.pdb_url);
+            }).fail(function(jqXHR) {
+                $("#loading-spinner").hide();
+                alert("❌ Error: " + jqXHR.responseText);
+            });
+        }
+
+        function render3DStructure(pdbUrl) {
+            let viewerElement = $("#viewer");
+            viewerElement.empty();
+            viewerElement.css({
+                "position": "relative",
+                "display": "block",
+                "margin": "auto"
+            });
+
+            let viewer = $3Dmol.createViewer(viewerElement[0], { backgroundColor: "black" });
+            
+            $.get(pdbUrl, function(pdbData) {
+                viewer.addModel(pdbData, "pdb");
+                viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+                viewer.zoomTo();
+                viewer.render();
+                setTimeout(() => viewer.resize(), 500);
+            });
+        }
+    </script>
+
+</body>
+</html>
